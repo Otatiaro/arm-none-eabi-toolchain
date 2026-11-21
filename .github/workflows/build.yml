@@ -25,7 +25,7 @@ jobs:
             work/install-linux-x86_64
             work/build-linux-x86_64/*.done
           key: linux-${{ hashFiles('versions.sh', 'build.sh') }}-${{ github.run_id }}
-          restore-keys: linux-${{ hashFiles('versions.sh') }}-
+          restore-keys: linux-${{ hashFiles('versions.sh', 'build.sh') }}-
       - name: Build
         run: ./build.sh --jobs "$(nproc)"
       - name: Save finished steps

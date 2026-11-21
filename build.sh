@@ -168,6 +168,16 @@ gcc_common_opts=(
 	--with-multilib-list=rmprofile
 )
 
+# A GCC installed under a prefix other than binutils' does not find
+# arm-none-eabi-as and -ld in its own <prefix>/arm-none-eabi/bin, and the
+# driver then falls back to the host's as and ld. The two throwaway GCCs
+# below (stage 1, nano) get the paths spelled out; the one that ships has
+# binutils' prefix, finds them by itself, and stays relocatable.
+binutils_opts=(
+	--with-as="$prefix/bin/$target-as"
+	--with-ld="$prefix/bin/$target-ld"
+)
+
 # ─── 3. GCC, C only, to compile newlib ──────────────────────────────────────
 # Only on a Linux host: a Windows build reuses the Linux toolchain on PATH.
 
@@ -176,6 +186,7 @@ if [ -z "$host" ] && [ ! -f "$build/stage1.done" ]; then
 	mkdir -p "$build/gcc-stage1" && cd "$build/gcc-stage1"
 	"$src/gcc-$GCC_VERSION/configure" \
 		"${gcc_common_opts[@]}" \
+		"${binutils_opts[@]}" \
 		--prefix="$stage1" \
 		--libexecdir="$stage1/lib" \
 		--enable-languages=c \
@@ -255,11 +266,13 @@ fi
 
 build_gcc() {
 	local dir=$1 install_prefix=$2 flags=$3
+	shift 3
 	mkdir -p "$dir" && cd "$dir"
 	CFLAGS_FOR_TARGET="$flags" CXXFLAGS_FOR_TARGET="$flags" \
 	"$src/gcc-$GCC_VERSION/configure" \
 		"${host_opts[@]}" \
 		"${gcc_common_opts[@]}" \
+		"$@" \
 		--prefix="$install_prefix" \
 		--libexecdir="$install_prefix/lib" \
 		--enable-languages=c,c++ \
@@ -277,7 +290,7 @@ fi
 if [ ! -f "$build/gcc-nano.done" ]; then
 	log "GCC $GCC_VERSION, nano (libstdc++ without exceptions)"
 	rm -rf "$nano"
-	build_gcc "$build/gcc-nano" "$nano" '-g -Os -ffunction-sections -fdata-sections -fno-exceptions'
+	build_gcc "$build/gcc-nano" "$nano" '-g -Os -ffunction-sections -fdata-sections -fno-exceptions' "${binutils_opts[@]}"
 	# Only its libstdc++ is kept, per multilib.
 	"$target_gcc" -print-multi-lib | while IFS=';' read -r dir _; do
 		cp -f "$nano/$target/lib/$dir/libstdc++.a" "$prefix/$target/lib/$dir/libstdc++_nano.a"
