@@ -13,8 +13,41 @@ jobs:
       - uses: actions/checkout@v5
       - name: Build dependencies
         run: sudo apt-get update && sudo apt-get install -y texinfo bison flex
+      # Steps already done in an earlier run of the same recipe are reused
+      # while the recipe is being worked on; a tag always builds from scratch.
+      - name: Restore finished steps
+        if: github.ref_type != 'tag'
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            work/src/*.tar.*
+            work/stage1
+            work/install-linux-x86_64
+            work/build-linux-x86_64/*.done
+          key: linux-${{ hashFiles('versions.sh', 'build.sh') }}-${{ github.run_id }}
+          restore-keys: linux-${{ hashFiles('versions.sh') }}-
       - name: Build
         run: ./build.sh --jobs "$(nproc)"
+      - name: Save finished steps
+        if: always() && github.ref_type != 'tag'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            work/src/*.tar.*
+            work/stage1
+            work/install-linux-x86_64
+            work/build-linux-x86_64/*.done
+          key: linux-${{ hashFiles('versions.sh', 'build.sh') }}-${{ github.run_id }}
+      - name: Configure logs, on failure
+        if: failure()
+        run: |
+          find work/build-linux-x86_64 work/stage1 -name config.log -mmin -240 2>/dev/null | while read -r f; do
+            if grep -q "error" "$f"; then
+              echo "::group::$f"
+              grep -n -B3 -A20 "configure:[0-9]*: error\|cannot compute\|error:" "$f" | tail -n 120
+              echo "::endgroup::"
+            fi
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: linux-x86_64
