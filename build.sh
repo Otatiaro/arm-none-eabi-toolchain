@@ -17,7 +17,8 @@
 #      and include/newlib-nano/newlib.h, which nano.specs selects;
 #   5. GCC, C and C++, twice: the standard one, and one with -fno-exceptions
 #      whose libstdc++.a and libsupc++.a are kept as libstdc++_nano.a and
-#      libsupc++_nano.a next to the standard ones;
+#      libsupc++_nano.a next to the standard ones (the second one on Linux
+#      only: another host takes every target library from the Linux build);
 #   6. strip, then pack as arm-none-eabi-toolchain-<version>-<host>.tar.xz
 #      (or .zip for Windows).
 #
@@ -287,7 +288,10 @@ if [ ! -f "$build/gcc.done" ]; then
 	touch "$build/gcc.done"
 fi
 
-if [ ! -f "$build/gcc-nano.done" ]; then
+# The nano libstdc++ is a target library: on another host it came with the
+# Linux toolchain's lib directory above, and this GCC's configure could not
+# run the binutils it would be told about anyway.
+if [ -z "$host" ] && [ ! -f "$build/gcc-nano.done" ]; then
 	log "GCC $GCC_VERSION, nano (libstdc++ without exceptions)"
 	rm -rf "$nano"
 	build_gcc "$build/gcc-nano" "$nano" '-g -Os -ffunction-sections -fdata-sections -fno-exceptions' "${binutils_opts[@]}"

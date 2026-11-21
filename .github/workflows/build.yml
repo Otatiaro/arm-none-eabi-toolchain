@@ -25,7 +25,13 @@ jobs:
             work/install-linux-x86_64
             work/build-linux-x86_64/*.done
           key: linux-${{ hashFiles('versions.sh', 'build.sh') }}-${{ github.run_id }}
-          restore-keys: linux-${{ hashFiles('versions.sh', 'build.sh') }}-
+          # Same sources and script first; failing that, the latest cache of
+          # all: a change to the script's later steps still skips the finished
+          # ones, which the .done markers guard. Delete the caches to rebuild
+          # from the sources.
+          restore-keys: |
+            linux-${{ hashFiles('versions.sh', 'build.sh') }}-
+            linux-
       - name: Build
         run: ./build.sh --jobs "$(nproc)"
       - name: Save finished steps
