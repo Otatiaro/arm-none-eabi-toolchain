@@ -130,6 +130,16 @@ fi
 
 export PATH="$prefix/bin:$stage1/bin:$PATH"
 
+# The target tools that run on this machine: the ones just built on a Linux
+# host, the Linux toolchain on PATH when building for Windows.
+if [ -n "$host" ]; then
+	target_gcc="$target-gcc"
+	target_objcopy="$target-objcopy"
+else
+	target_gcc="$prefix/bin/$target-gcc"
+	target_objcopy="$prefix/bin/$target-objcopy"
+fi
+
 # The GCC configure options every GCC build here shares. Arch's, minus the
 # system libraries (built in-tree instead) and plus a relocatable prefix.
 gcc_common_opts=(
@@ -269,7 +279,7 @@ if [ ! -f "$build/gcc-nano.done" ]; then
 	rm -rf "$nano"
 	build_gcc "$build/gcc-nano" "$nano" '-g -Os -ffunction-sections -fdata-sections -fno-exceptions'
 	# Only its libstdc++ is kept, per multilib.
-	"$prefix/bin/$target-gcc" -print-multi-lib | while IFS=';' read -r dir _; do
+	"$target_gcc" -print-multi-lib | while IFS=';' read -r dir _; do
 		cp -f "$nano/$target/lib/$dir/libstdc++.a" "$prefix/$target/lib/$dir/libstdc++_nano.a"
 		cp -f "$nano/$target/lib/$dir/libsupc++.a" "$prefix/$target/lib/$dir/libsupc++_nano.a"
 	done
@@ -281,7 +291,7 @@ fi
 log "Stripping"
 # Target libraries lose their debug info, as in the Arch packages.
 find "$prefix/lib/gcc/$target/$GCC_VERSION" "$prefix/$target/lib" -type f \( -name '*.a' -o -name '*.o' \) \
-	-exec "$prefix/bin/$target-objcopy" -R .comment -R .note -R .debug_info -R .debug_aranges -R .debug_pubnames \
+	-exec "$target_objcopy" -R .comment -R .note -R .debug_info -R .debug_aranges -R .debug_pubnames \
 	-R .debug_pubtypes -R .debug_abbrev -R .debug_line -R .debug_str -R .debug_ranges -R .debug_loc '{}' \; 2>/dev/null || true
 # Host binaries.
 host_strip=strip
