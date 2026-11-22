@@ -15,6 +15,6 @@ NEWLIB_URL="https://sourceware.org/pub/newlib/newlib-${NEWLIB_VERSION}.tar.gz"
 
 # Our own release number for this set of versions and flags. Reset to 1 when
 # a component's version changes, bumped when only the recipe changes.
-RELEASE=1
+RELEASE=2
 
 TOOLCHAIN_VERSION="${GCC_VERSION}-${RELEASE}"
