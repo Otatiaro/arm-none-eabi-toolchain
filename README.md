@@ -31,14 +31,15 @@ export PATH=/opt/arm-none-eabi-toolchain-16.2.0-1/bin:$PATH
 arm-none-eabi-g++ --version
 ```
 
-In a GitHub Actions workflow:
+In a GitHub Actions workflow on a Linux runner, this repository is an
+action: it downloads the release, checks it against the release's
+`SHA256SUMS` and puts its `bin/` on `PATH`. Pin the action to a commit and
+name the release:
 
 ```yaml
-- name: GCC 16 for arm-none-eabi
-  run: |
-    curl -fsSL -o toolchain.tar.xz https://github.com/Otatiaro/arm-none-eabi-toolchain/releases/download/v16.2.0-1/arm-none-eabi-toolchain-16.2.0-1-linux-x86_64.tar.xz
-    tar -xJf toolchain.tar.xz -C "$HOME"
-    echo "$HOME/arm-none-eabi-toolchain-16.2.0-1/bin" >> "$GITHUB_PATH"
+- uses: Otatiaro/arm-none-eabi-toolchain@<commit>
+  with:
+    version: 16.2.0-1
 ```
 
 ## What it is built like
