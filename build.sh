@@ -24,9 +24,10 @@
 #
 # Usage: build.sh [--host x86_64-w64-mingw32] [--jobs N] [--work DIR]
 #
-# A Windows build needs a Linux toolchain of the same version on PATH: GCC's
-# target libraries are compiled by it, since the Windows compiler being built
-# cannot run here. The GitHub workflow builds Linux first and reuses it.
+# A Windows build needs a Linux toolchain of the same GCC and newlib versions
+# on PATH: GCC's target libraries are compiled by it, since the Windows
+# compiler being built cannot run here. The GitHub workflow builds Linux first
+# and reuses it, or downloads the release LINUX_RELEASE names in versions.sh.
 
 set -euo pipefail
 
