@@ -69,8 +69,20 @@ target headers and libraries are the Linux build's: they do not depend on
 the host.
 
 Versions and checksums are in `versions.sh`; bumping a component means
-editing that file. The release number after the GCC version (`16.2.0-1`)
-counts the builds of a given set of versions.
+editing that file. The release number after the GCC version (`16.2.0-2`)
+counts the builds of a given set of versions. A release that changes only
+the Windows build carries no Linux archive: `LINUX_RELEASE` in `versions.sh`
+names the release to take on Linux, here 16.2.0-1.
+
+`patches/<component>/` holds fixes merged upstream after the released
+version, applied at unpacking:
+
+- binutils, PR 24576: on Windows, ld 2.47 rejects any `INCLUDE` in a script
+  passed with `-T` as "appears multiple times". Fixed on binutils master
+  (`ab1830f6`); from 16.2.0-2 on, which is a Windows-only release (Linux was
+  never affected).
+
+A patch leaves when the version that carries it is adopted.
 
 ## Building it yourself
 

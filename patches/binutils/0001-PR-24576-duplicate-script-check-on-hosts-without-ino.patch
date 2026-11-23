@@ -1,0 +1,88 @@
+From ab1830f633107b180b46938003e6f49fb44cb17d Mon Sep 17 00:00:00 2001
+From: Cole Munz <Munzzyy1@proton.me>
+Date: Mon, 17 Aug 2026 16:59:00 +0000
+Subject: [PATCH] PR 24576: duplicate-script check on hosts without inodes
+
+Since 2.47, ld rejects a perfectly ordinary link on native Windows:
+
+  ld.exe: error: linker script file '../common_arm/ldscript.common
+  (ldscript-flash)' appears multiple times
+
+when the only thing on the command line is a single -T, and that script
+INCLUDEs one other file. The two names in the message are the giveaway:
+the file being opened and an entry already recorded are different files,
+so the comparison that matched them is wrong.
+
+Two changes stack up to produce it. d048eee29108 ("ld: Use stat to check
+if linker script appears multiple times") changed the PR 24576 check from
+a name comparison to stat plus SAME_INODE. Then 47071f8b14a0
+("same-inode.h: don't depend on _GL_WINDOWS_STAT_INODES") dropped the
+guard in include/same-inode.h that had been expanding SAME_INODE to a
+literal 0 on native Windows. binutils never defines
+_GL_WINDOWS_STAT_INODES, so on Windows the check went from dead code to
+live in one release.
+
+The Windows CRT sets st_ino to 0 for every file. The guard that survived
+only rejects st_ino == 0 && st_dev == 0, and st_dev is the drive number,
+so on D: it is 3 and the guard passes. Every file on the drive then
+compares equal to every other file, and the first INCLUDE inside a -T
+script looks like a repeat of the script itself. The commit message of
+47071f8b14a0 anticipates this: "this doesn't really make SAME_INODE
+usable on windows hosts as a number of the likely filesystems (FAT,
+HPFS, or NTFS) don't support st_ino."
+
+Fall back to comparing file names when stat gives no usable inode, so the
+duplicate detection keeps working on hosts where inodes are real and stops
+firing on files that merely share a device. PR 24576's own testcases still
+pass, including the ././/script spelling that a name comparison alone would
+miss, because hosts with real inodes still take the inode path.
+
+Signed-off-by: Cole Munz <Munzzyy1@proton.me>
+---
+ ld/ldfile.c | 27 +++++++++++++++++++++------
+ 1 file changed, 21 insertions(+), 6 deletions(-)
+
+diff --git a/ld/ldfile.c b/ld/ldfile.c
+index 00fe1d90..cad1e168 100644
+--- a/ld/ldfile.c
++++ b/ld/ldfile.c
+@@ -881,15 +881,30 @@ ldfile_find_command_file (const char *name,
+      the same linker script twice.  */
+   if (stat (filename, &sbuf1) == 0)
+     {
+-      struct stat sbuf2;
++#if defined _WIN32 && ! defined __CYGWIN__
++      /* Native Windows stat reports st_ino as zero on most file
++	 systems.  Compare file names there.  */
++      bool have_inode = sbuf1.st_ino != 0;
++#else
++      bool have_inode = true;
++#endif
++
+       for (script = processed_scripts;
+ 	   script != NULL;
+ 	   script = script->next)
+-	if ((open_how != script_nonT || script->open_how != script_nonT)
+-	    && stat (script->name, &sbuf2) == 0
+-	    && SAME_INODE (sbuf1, sbuf2))
+-	  fatal (_("%P: error: linker script file '%s (%s)'"
+-		   " appears multiple times\n"), filename, script->name);
++	{
++	  struct stat sbuf2;
++
++	  if (open_how == script_nonT && script->open_how == script_nonT)
++	    continue;
++
++	  if (have_inode
++	      ? (stat (script->name, &sbuf2) == 0
++		 && SAME_INODE (sbuf1, sbuf2))
++	      : filename_cmp (filename, script->name) == 0)
++	    fatal (_("%P: error: linker script file '%s (%s)'"
++		     " appears multiple times\n"), filename, script->name);
++	}
+     }
+ 
+   len = strlen (filename);
+-- 
+2.53.0.windows.2
+

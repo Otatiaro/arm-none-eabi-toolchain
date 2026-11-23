@@ -24,9 +24,10 @@
 #
 # Usage: build.sh [--host x86_64-w64-mingw32] [--jobs N] [--work DIR]
 #
-# A Windows build needs a Linux toolchain of the same version on PATH: GCC's
-# target libraries are compiled by it, since the Windows compiler being built
-# cannot run here. The GitHub workflow builds Linux first and reuses it.
+# A Windows build needs a Linux toolchain of the same GCC and newlib versions
+# on PATH: GCC's target libraries are compiled by it, since the Windows
+# compiler being built cannot run here. The GitHub workflow builds Linux first
+# and reuses it, or downloads the release LINUX_RELEASE names in versions.sh.
 
 set -euo pipefail
 
@@ -83,18 +84,27 @@ fetch() {
 	echo "$sha  $file" | sha256sum -c --quiet
 }
 
+# Unpacks a tarball, then applies the upstream fixes in patches/<name>/, in
+# order: fixes merged upstream after the release they apply to.
 unpack() {
-	local file=$1 dir=$2
-	[ -d "$src/$dir" ] || { log "Unpacking $dir"; tar -xf "$file" -C "$src"; }
+	local file=$1 dir=$2 name=$3 patch
+	[ -d "$src/$dir" ] && return
+	log "Unpacking $dir"
+	tar -xf "$file" -C "$src"
+	for patch in "$here/patches/$name"/*.patch; do
+		[ -f "$patch" ] || continue
+		log "Applying $(basename "$patch")"
+		patch -d "$src/$dir" -p1 --forward --batch < "$patch"
+	done
 }
 
 fetch "$GCC_URL" "$GCC_SHA256"
 fetch "$BINUTILS_URL" "$BINUTILS_SHA256"
 fetch "$NEWLIB_URL" "$NEWLIB_SHA256"
 
-unpack "$src/gcc-$GCC_VERSION.tar.xz" "gcc-$GCC_VERSION"
-unpack "$src/binutils-$BINUTILS_VERSION.tar.xz" "binutils-$BINUTILS_VERSION"
-unpack "$src/newlib-$NEWLIB_VERSION.tar.gz" "newlib-$NEWLIB_VERSION"
+unpack "$src/gcc-$GCC_VERSION.tar.xz" "gcc-$GCC_VERSION" gcc
+unpack "$src/binutils-$BINUTILS_VERSION.tar.xz" "binutils-$BINUTILS_VERSION" binutils
+unpack "$src/newlib-$NEWLIB_VERSION.tar.gz" "newlib-$NEWLIB_VERSION" newlib
 
 if [ ! -d "$src/gcc-$GCC_VERSION/gmp" ]; then
 	log "Fetching GCC's host prerequisites (gmp, mpfr, mpc, isl)"
